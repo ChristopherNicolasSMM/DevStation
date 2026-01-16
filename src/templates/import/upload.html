@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Importar Excel - {{ table.name }} - DevStation{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>Importar Arquivo Excel - {{ table.name }}</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" action="{{ url_for('import.upload_file', table_config_id=table.id) }}">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Selecione o arquivo (XLSX, XLS ou CSV)</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.xls,.csv" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Enviar e Processar</button>
+                    <a href="{{ url_for('admin.tables') }}" class="btn btn-secondary">Voltar</a>
+                </form>
+            </div>
+        </div>
+        
+        {% if import_logs %}
+        <div class="card">
+            <div class="card-header">
+                <h5>Histórico de Importações</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Arquivo</th>
+                            <th>Data</th>
+                            <th>Status</th>
+                            <th>Registros</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in import_logs %}
+                        <tr>
+                            <td>{{ log.filename }}</td>
+                            <td>{{ log.uploaded_at.strftime('%d/%m/%Y %H:%M') if log.uploaded_at else '-' }}</td>
+                            <td>
+                                {% if log.status == 'completed' %}
+                                    <span class="badge bg-success">Processado</span>
+                                {% elif log.status == 'approved' %}
+                                    <span class="badge bg-primary">Aprovado</span>
+                                {% elif log.status == 'rejected' %}
+                                    <span class="badge bg-danger">Rejeitado</span>
+                                {% elif log.status == 'failed' %}
+                                    <span class="badge bg-warning">Erro</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ log.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ log.total_rows }} total
+                                {% if log.new_records %}({{ log.new_records }} novos){% endif %}
+                                {% if log.updated_records %}({{ log.updated_records }} atualizados){% endif %}
+                            </td>
+                            <td>
+                                {% if log.status == 'completed' %}
+                                    <a href="{{ url_for('import.review_import', import_log_id=log.id) }}" class="btn btn-sm btn-primary">Revisar</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

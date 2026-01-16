@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Perfil - DevStation{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3>Informações do Perfil</h3>
+            </div>
+            <div class="card-body">
+                <p><strong>Usuário:</strong> {{ user.username }}</p>
+                <p><strong>Email:</strong> {{ user.email }}</p>
+                <p><strong>Grupo:</strong> {{ user.group.name if user.group else 'N/A' }}</p>
+                <p><strong>Admin:</strong> {{ 'Sim' if user.is_admin else 'Não' }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3>Alterar Senha</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('auth.change_password') }}">
+                    <div class="mb-3">
+                        <label for="current_password" class="form-label">Senha Atual</label>
+                        <input type="password" class="form-control" id="current_password" name="current_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">Nova Senha</label>
+                        <input type="password" class="form-control" id="new_password" name="new_password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Alterar Senha</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}Revisar Importação - DevStation{% endblock %}
+
+{% block extra_css %}
+<style>
+    .diff-old { background-color: #ffcccc; }
+    .diff-new { background-color: #ccffcc; }
+    .comparison-table { font-size: 0.9em; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Revisar Importação - {{ table.name }}</h1>
+            <div>
+                <button type="button" class="btn btn-success" onclick="approveSelected()">Aprovar Selecionados</button>
+                <button type="button" class="btn btn-danger" onclick="rejectImport()">Rejeitar Tudo</button>
+                <a href="{{ url_for('import.upload_file', table_config_id=table.id) }}" class="btn btn-secondary">Voltar</a>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Resumo da Importação</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Arquivo:</strong> {{ import_log.filename }}<br>
+                        <strong>Total de linhas:</strong> {{ import_log.total_rows }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Novos:</strong> <span class="badge bg-success">{{ import_log.new_records }}</span><br>
+                        <strong>Atualizações:</strong> <span class="badge bg-warning">{{ import_log.updated_records }}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Sem alterações:</strong> <span class="badge bg-secondary">{{ import_log.unchanged_records }}</span><br>
+                        <strong>Erros:</strong> <span class="badge bg-danger">{{ import_log.error_records }}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Status:</strong> 
+                        <span class="badge bg-info">{{ import_log.status }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if import_log.divergences %}
+        <div class="card">
+            <div class="card-header">
+                <h5>Divergências Detectadas</h5>
+            </div>
+            <div class="card-body">
+                <form id="approvalForm">
+                    <div class="table-responsive">
+                        <table class="table table-bordered comparison-table">
+                            <thead>
+                                <tr>
+                                    <th width="50">
+                                        <input type="checkbox" id="selectAll" onchange="toggleAll(this)">
+                                    </th>
+                                    <th>Ação</th>
+                                    <th>Campos</th>
+                                    <th>Atual (Banco)</th>
+                                    <th>Novo (Excel)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for div in import_log.divergences %}
+                                {% if div.action != 'unchanged' %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" class="row-checkbox" 
+                                               data-index="{{ div.index }}" 
+                                               data-action="{{ div.action }}"
+                                               {% if div.action == 'error' %}disabled{% endif %}>
+                                    </td>
+                                    <td>
+                                        {% if div.action == 'new' %}
+                                            <span class="badge bg-success">Novo</span>
+                                        {% elif div.action == 'update' %}
+                                            <span class="badge bg-warning">Atualizar</span>
+                                        {% elif div.action == 'error' %}
+                                            <span class="badge bg-danger">Erro</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if div.differences %}
+                                            {% for field_name, diff in div.differences.items() %}
+                                            <div>
+                                                <input type="checkbox" class="field-checkbox" 
+                                                       data-index="{{ div.index }}" 
+                                                       data-field="{{ field_name }}"
+                                                       checked>
+                                                <strong>{{ field_name }}</strong>
+                                            </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            Todos os campos
+                                        {% endif %}
+                                    </td>
+                                    <td class="diff-old">
+                                        {% if div.existing %}
+                                            {% for field_name, value in div.existing.items() %}
+                                            <div><strong>{{ field_name }}:</strong> {{ value }}</div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <em>Não existe</em>
+                                        {% endif %}
+                                    </td>
+                                    <td class="diff-new">
+                                        {% if div.record %}
+                                            {% for field_name, value in div.record.items() %}
+                                            <div><strong>{{ field_name }}:</strong> {{ value }}</div>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            Nenhuma divergência encontrada.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+const importLogId = {{ import_log.id }};
+
+function toggleAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.row-checkbox:not([disabled])');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+}
+
+function approveSelected() {
+    const checkedRows = document.querySelectorAll('.row-checkbox:checked');
+    const approvedItems = [];
+    
+    checkedRows.forEach(row => {
+        const index = parseInt(row.dataset.index);
+        const action = row.dataset.action;
+        
+        // Obter campos aprovados para esta linha
+        const fieldCheckboxes = document.querySelectorAll(
+            `.field-checkbox[data-index="${index}"]:checked`
+        );
+        const fields = Array.from(fieldCheckboxes).map(cb => cb.dataset.field);
+        
+        approvedItems.push({
+            index: index,
+            action: action,
+            fields: fields.length > 0 ? fields : null  // null = todos os campos
+        });
+    });
+    
+    if (approvedItems.length === 0) {
+        alert('Selecione pelo menos um item para aprovar');
+        return;
+    }
+    
+    if (!confirm(`Aprovar ${approvedItems.length} item(ns)?`)) {
+        return;
+    }
+    
+    fetch(`/import/${importLogId}/approve`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ approved_items: approvedItems })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Erro: ' + data.error);
+        } else {
+            alert('Alterações aplicadas com sucesso!');
+            window.location.reload();
+        }
+    })
+    .catch(error => {
+        alert('Erro ao aprovar: ' + error);
+    });
+}
+
+function rejectImport() {
+    const reason = prompt('Motivo da rejeição:');
+    if (!reason) return;
+    
+    if (!confirm('Tem certeza que deseja rejeitar esta importação?')) {
+        return;
+    }
+    
+    fetch(`/import/${importLogId}/reject`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason: reason })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Erro: ' + data.error);
+        } else {
+            alert('Importação rejeitada');
+            window.location.href = '{{ url_for("import.upload_file", table_config_id=table.id) }}';
+        }
+    })
+    .catch(error => {
+        alert('Erro ao rejeitar: ' + error);
+    });
+}
+</script>
+{% endblock %}
+{% endblock %}
