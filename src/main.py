@@ -82,7 +82,7 @@ def register_core_blueprints(app):
         from controller.web import web_bp
         from controller.admin import admin_bp
         from controller.crud import crud_bp
-        #from controller.import import import_bp
+        from controller.imp import import_bp
         from api.routes.crud_routes import crud_api_bp
         from api.routes.export_routes import export_api_bp
 
@@ -90,7 +90,7 @@ def register_core_blueprints(app):
         app.register_blueprint(auth_bp, url_prefix="/auth")
         app.register_blueprint(admin_bp, url_prefix="/admin")
         app.register_blueprint(crud_bp, url_prefix="/crud")
-        #app.register_blueprint(import_bp, url_prefix="/import")
+        app.register_blueprint(import_bp, url_prefix="/import")
         app.register_blueprint(crud_api_bp, url_prefix="/api")
         app.register_blueprint(export_api_bp, url_prefix="/api")
 

@@ -1,0 +1,11 @@
+2026-01-16 16:05:58 [INFO] main - Logging configurado no nível DEBUG (arquivo: 16_01_2026_16_05_58.txt).
+2026-01-16 16:06:00 [INFO] main - Blueprints core registrados com sucesso.
+2026-01-16 16:06:00 [INFO] werkzeug - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.0.1.3:5000
+2026-01-16 16:06:00 [INFO] werkzeug - [33mPress CTRL+C to quit[0m
+2026-01-16 16:06:33 [INFO] werkzeug - 127.0.0.1 - - [16/Jan/2026 16:06:33] "[35m[1mGET /dashboard HTTP/1.1[0m" 500 -
+2026-01-16 16:06:33 [INFO] werkzeug - 127.0.0.1 - - [16/Jan/2026 16:06:33] "[36mGET /dashboard?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2026-01-16 16:06:33 [INFO] werkzeug - 127.0.0.1 - - [16/Jan/2026 16:06:33] "[36mGET /dashboard?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+2026-01-16 16:06:33 [INFO] werkzeug - 127.0.0.1 - - [16/Jan/2026 16:06:33] "GET /dashboard?__debugger__=yes&cmd=resource&f=console.png&s=ChLzCPJHrigZqPsCM7uh HTTP/1.1" 200 -

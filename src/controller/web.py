@@ -18,6 +18,7 @@ def index():
 @login_required
 def dashboard():
     """Dashboard principal."""
+    from db.database import db
     from model.table_config import TableConfig
     from model.user import User, UserGroup
     from model.import_log import ImportLog

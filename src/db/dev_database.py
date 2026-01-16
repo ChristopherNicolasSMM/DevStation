@@ -42,9 +42,9 @@ def init_db(app):
             import model.import_log
             import model.audit
             import model.layout
-            import model.table_config
-            import model.field_config
-            import model.permission
+            #import model.table_config
+            #import model.field_config
+            #import model.permission
             
             # Criar tabelas core
             db.create_all()
