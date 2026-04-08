@@ -1,0 +1,172 @@
+app:
+  name: "DevStationPlatform"
+  version: "1.0.0"
+  debug: true
+  environment: "development"  # development, staging, production
+  
+database:
+  dialect: "sqlite"  # sqlite, postgresql, mysql
+  database: "devstation.db"
+  echo: false
+  pool_size: 5
+  max_overflow: 10
+
+security:
+  jwt_secret_key: "CHANGE_ME_IN_PRODUCTION"
+  jwt_expiration_hours: 24
+  bcrypt_rounds: 12
+  session_timeout_minutes: 30
+  
+  # Perfis padrão do sistema (podem ser modificados/removidos)
+  default_profiles:
+    - code: "USER"
+      name: "Usuário Final"
+      description: "Acesso básico apenas para execução"
+      is_system: true
+      priority: 10
+      
+    - code: "PUSER"
+      name: "Power User"
+      description: "Usuário avançado com exportações"
+      is_system: true
+      priority: 20
+      inherit_from: ["USER"]
+      
+    - code: "BANALYST"
+      name: "Business Analyst"
+      description: "Analista de negócios"
+      is_system: true
+      priority: 30
+      inherit_from: ["PUSER"]
+      
+    - code: "DEVELOPER"
+      name: "Developer"
+      description: "Desenvolvedor de plugins"
+      is_system: true
+      priority: 40
+      inherit_from: ["BANALYST"]
+      
+    - code: "CORE_DEV"
+      name: "Core Developer"
+      description: "Desenvolvedor do core da plataforma"
+      is_system: true
+      priority: 50
+      inherit_from: ["DEVELOPER"]
+      
+    - code: "DEV_ALL"
+      name: "Dev All Access"
+      description: "Acesso total de desenvolvimento"
+      is_system: true
+      priority: 60
+      inherit_from: ["CORE_DEV"]
+      
+    - code: "ADMIN"
+      name: "Administrator"
+      description: "Administrador do sistema"
+      is_system: true
+      priority: 100
+      inherit_from: ["DEV_ALL"]
+  
+  # Permissões padrão do sistema
+  default_permissions:
+    # Transações
+    - code: "transaction.execute"
+      name: "Executar transações"
+      category: "TRANSACTION"
+    - code: "transaction.create"
+      name: "Criar transações NDS_"
+      category: "TRANSACTION"
+    - code: "transaction.modify.ds"
+      name: "Modificar transações DS_"
+      category: "TRANSACTION"
+      
+    # Plugins
+    - code: "plugin.install"
+      name: "Instalar plugins"
+      category: "PLUGIN"
+    - code: "plugin.develop"
+      name: "Desenvolver plugins"
+      category: "PLUGIN"
+    - code: "plugin.publish"
+      name: "Publicar plugins"
+      category: "PLUGIN"
+      
+    # Dados
+    - code: "data.query"
+      name: "Consultar dados"
+      category: "DATA"
+    - code: "data.export"
+      name: "Exportar dados"
+      category: "DATA"
+    - code: "data.import"
+      name: "Importar dados"
+      category: "DATA"
+      
+    # Admin
+    - code: "admin.users"
+      name: "Gerenciar usuários"
+      category: "ADMIN"
+    - code: "admin.profiles"
+      name: "Gerenciar perfis"
+      category: "ADMIN"
+    - code: "admin.permissions"
+      name: "Gerenciar permissões"
+      category: "ADMIN"
+    - code: "admin.audit"
+      name: "Visualizar auditoria"
+      category: "ADMIN"
+      
+    # IA
+    - code: "ia.consult"
+      name: "Consultar IA"
+      category: "IA"
+    - code: "ia.train"
+      name: "Treinar modelos IA"
+      category: "IA"
+
+menu:
+  structure:
+    - label: "Dashboard"
+      icon: "dashboard"
+      path: "/dashboard"
+      permissions: ["transaction.execute"]
+      
+    - label: "Desenvolvimento"
+      icon: "code"
+      children:
+        - label: "Query Console"
+          path: "/tools/query"
+          transaction: "DS_QUERY"
+          permissions: ["transaction.execute"]
+        - label: "Transaction Generator"
+          path: "/tools/gen_trans"
+          transaction: "DS_GENTRAN"
+          permissions: ["transaction.create"]
+          
+    - label: "Administração"
+      icon: "admin"
+      permissions: ["admin.users"]
+      children:
+        - label: "Usuários"
+          path: "/admin/users"
+          transaction: "DS_USERS"
+        - label: "Perfis de Acesso"
+          path: "/admin/profiles"
+          transaction: "DS_PROFILES"
+        - label: "Permissões"
+          path: "/admin/permissions"
+          transaction: "DS_PERMISSIONS"
+        - label: "Auditoria"
+          path: "/admin/audit"
+          transaction: "DS_AUDIT"
+
+plugins:
+  autodiscover: true
+  path: "plugins"
+  enabled: []
+  
+logging:
+  level: "INFO"
+  file: "logs/app.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  audit_file: "logs/audit.log"

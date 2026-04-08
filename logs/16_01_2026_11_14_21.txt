@@ -1,7 +1,0 @@
-2026-01-16 11:14:21 [INFO] main - Logging configurado no nível DEBUG (arquivo: 16_01_2026_11_14_21.txt).
-2026-01-16 11:14:32 [ERROR] main - Erro ao registrar blueprints core: name 'import_bp' is not defined
-Traceback (most recent call last):
-  File "C:\Users\christopher.mauricio\Desktop\Christopher Pessoal\Programação e Tecnologia\Python\DevStation\src\main.py", line 93, in register_core_blueprints
-    app.register_blueprint(import_bp, url_prefix="/import")
-                           ^^^^^^^^^
-NameError: name 'import_bp' is not defined
