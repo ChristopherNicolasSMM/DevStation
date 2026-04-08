@@ -142,4 +142,5 @@ def get_current_user(page: ft.Page):
             return rbac.validate_token(token)
     except:
         pass
+    
     return None
