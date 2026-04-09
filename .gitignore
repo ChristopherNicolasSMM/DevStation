@@ -148,7 +148,8 @@ database/backups/
 *csv
 
 # IDE
-.vscode/
+#Deixa salvar as preferenciass pra debugf na ide
+#.vscode/
 .idea/
 *.swp
 *.swo
