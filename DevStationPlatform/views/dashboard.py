@@ -1,134 +1,142 @@
 """
-Dashboard Principal - Tela inicial após login
+Dashboard Principal — tela inicial após login
+Flet 0.84
 """
 
 import flet as ft
 from datetime import datetime
 from core.audit_logger import audit_logger
 from core.kpi.collector import kpi_collector
-
-
-CLR_BG = ft.Colors.GREY_50
-CLR_CARD = ft.Colors.WHITE
-CLR_PRIMARY = ft.Colors.BLUE_700
-CLR_SUCCESS = ft.Colors.GREEN_600
-CLR_ERROR = ft.Colors.RED_600
-CLR_WARN = ft.Colors.ORANGE_600
-CLR_TEXT = ft.Colors.GREY_900
-CLR_SUB = ft.Colors.GREY_600
-CLR_BORDER = ft.Colors.GREY_200
+from core.theme import Theme
 
 
 class DashboardView:
-    """Tela principal com resumo do sistema."""
-
     def __init__(self, page: ft.Page, user_data: dict):
         self.page = page
         self.user = user_data
+        self.t = Theme.of(page)
 
     def build(self) -> ft.Container:
-        stats = audit_logger.get_audit_stats()
-        kpi_data = kpi_collector.get_dashboard_data()
-        score = kpi_data.get("kpi_score", 0)
-        recent = audit_logger.get_recent_audit(5)
+        t = self.t
+        stats   = audit_logger.get_audit_stats()
+        kpi_d   = kpi_collector.get_dashboard_data()
+        score   = kpi_d.get("kpi_score", 0)
+        recent  = audit_logger.get_recent_audit(5)
+
         hour = datetime.now().hour
         greeting = "Bom dia" if hour < 12 else ("Boa tarde" if hour < 18 else "Boa noite")
-        name = self.user.get("full_name") or self.user.get("username", "")
+        name     = self.user.get("full_name") or self.user.get("username", "")
         profiles = ", ".join(self.user.get("profiles", []))
 
         # ── Saudação ──
         welcome = ft.Container(
-            content=ft.Column(
+            content=ft.Row(
                 [
-                    ft.Text(f"{greeting}, {name}! 👋", size=26, weight=ft.FontWeight.BOLD, color=CLR_TEXT),
-                    ft.Text(f"Perfil: {profiles} · {datetime.now().strftime('%d/%m/%Y %H:%M')}", size=13, color=CLR_SUB),
+                    ft.Column(
+                        [
+                            ft.Text(f"{greeting}, {name}! 👋", size=24, weight=ft.FontWeight.BOLD, color=t.text),
+                            ft.Text(
+                                f"Perfil: {profiles}  ·  {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+                                size=13, color=t.subtext,
+                            ),
+                        ],
+                        spacing=4, tight=True, expand=True,
+                    ),
                 ],
-                spacing=4,
             ),
-            bgcolor=CLR_CARD,
+            bgcolor=t.card,
+            border=ft.Border.all(1, t.border),
             border_radius=12,
-            padding=ft.padding.symmetric(horizontal=24, vertical=18),
-            border=ft.border.all(1, CLR_BORDER),
+            padding=ft.Padding.symmetric(horizontal=24, vertical=18),
         )
 
         # ── Status do sistema ──
-        status_items = [
-            ("Core Engine",    "ONLINE",    ft.Icons.CIRCLE, CLR_SUCCESS),
-            ("Banco de Dados", "CONECTADO", ft.Icons.STORAGE, CLR_SUCCESS),
-            ("Segurança",      "ATIVO",     ft.Icons.LOCK, CLR_SUCCESS),
-            ("Auditoria",      "ATIVA",     ft.Icons.RECEIPT_LONG, CLR_SUCCESS),
-            ("KPI Collector",  "RODANDO",   ft.Icons.INSIGHTS, CLR_SUCCESS),
+        def status_row(label, status, icon, color):
+            return ft.Row(
+                [
+                    ft.Icon(icon, color=color, size=16),
+                    ft.Text(label, size=13, color=t.text, expand=True),
+                    ft.Container(
+                        content=ft.Text(status, size=11, color=ft.Colors.WHITE),
+                        bgcolor=color, border_radius=4,
+                        padding=ft.Padding.symmetric(horizontal=8, vertical=3),
+                    ),
+                ],
+                spacing=8,
+            )
+
+        system_status = [
+            ("Core Engine",    "ONLINE",    ft.Icons.CIRCLE,        t.success),
+            ("Banco de Dados", "CONECTADO", ft.Icons.STORAGE,       t.success),
+            ("Segurança",      "ATIVO",     ft.Icons.LOCK,          t.success),
+            ("Auditoria",      "ATIVA",     ft.Icons.RECEIPT_LONG,  t.success),
+            ("KPI Collector",  "RODANDO",   ft.Icons.INSIGHTS,      t.success),
         ]
 
-        status_card = ft.Container(
+        status_card = t.card_container(
             content=ft.Column(
                 [
-                    ft.Text("🖥️ Status do Sistema", size=14, weight=ft.FontWeight.BOLD, color=CLR_TEXT),
-                    ft.Divider(height=1, color=CLR_BORDER),
-                    *[
-                        ft.Row(
-                            [
-                                ft.Icon(icon, color=color, size=16),
-                                ft.Text(label, size=13, color=CLR_TEXT, expand=True),
-                                ft.Container(
-                                    content=ft.Text(status, size=11, color=ft.Colors.WHITE),
-                                    bgcolor=color,
-                                    border_radius=4,
-                                    padding=ft.padding.symmetric(horizontal=8, vertical=3),
-                                ),
-                            ],
-                            spacing=8,
-                        )
-                        for label, status, icon, color in status_items
-                    ],
+                    ft.Text("🖥️ Status do Sistema", size=14, weight=ft.FontWeight.BOLD, color=t.text),
+                    t.divider(),
+                    *[status_row(*s) for s in system_status],
                 ],
                 spacing=10,
             ),
-            bgcolor=CLR_CARD,
-            border=ft.border.all(1, CLR_BORDER),
-            border_radius=10,
             padding=20,
             expand=1,
         )
 
         # ── KPI resumo ──
-        score_color = CLR_SUCCESS if score >= 80 else (CLR_WARN if score >= 50 else CLR_ERROR)
-        kpi_card = ft.Container(
+        sc_color = t.success if score >= 80 else (t.warning if score >= 50 else t.error)
+
+        def mini_stat(label, value, color=None):
+            return ft.Row(
+                [
+                    ft.Text(label, size=12, color=t.subtext, expand=True),
+                    ft.Text(str(value), size=13, weight=ft.FontWeight.BOLD,
+                            color=color or t.text),
+                ],
+                spacing=8,
+            )
+
+        kpi_card = t.card_container(
             content=ft.Column(
                 [
-                    ft.Text("📊 Resumo de KPIs", size=14, weight=ft.FontWeight.BOLD, color=CLR_TEXT),
-                    ft.Divider(height=1, color=CLR_BORDER),
+                    ft.Text("📊 Resumo de KPIs", size=14, weight=ft.FontWeight.BOLD, color=t.text),
+                    t.divider(),
                     ft.Row(
                         [
                             ft.Column(
                                 [
-                                    ft.Text("KPI Score", size=11, color=CLR_SUB),
-                                    ft.Text(str(score), size=42, weight=ft.FontWeight.BOLD, color=score_color),
-                                    ft.Text("/ 100", size=12, color=CLR_SUB),
+                                    ft.Text("KPI Score", size=11, color=t.subtext),
+                                    ft.Text(str(score), size=40, weight=ft.FontWeight.BOLD, color=sc_color),
+                                    ft.Text("/ 100", size=12, color=t.subtext),
+                                    ft.ProgressBar(
+                                        value=score / 100, color=sc_color,
+                                        bgcolor=ft.Colors.GREY_200 if not t.is_dark else ft.Colors.GREY_700,
+                                        height=8, border_radius=4,
+                                    ),
                                 ],
                                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                                spacing=2,
+                                spacing=4, width=130,
                             ),
-                            ft.VerticalDivider(width=1, color=CLR_BORDER),
+                            ft.VerticalDivider(width=1, color=t.border),
                             ft.Column(
                                 [
-                                    self._mini_stat("Total de Ações", str(stats["total_actions"])),
-                                    self._mini_stat("Erros Registrados", str(stats["total_errors"]), CLR_ERROR),
-                                    self._mini_stat("Modificações", str(stats["total_changes"])),
-                                    self._mini_stat("Taxa de Sucesso", f"{stats['success_rate']}%", CLR_SUCCESS),
+                                    mini_stat("Total de Ações",   stats["total_actions"]),
+                                    mini_stat("Erros",             stats["total_errors"],  t.error),
+                                    mini_stat("Modificações",      stats["total_changes"]),
+                                    mini_stat("Taxa de Sucesso",   f"{stats['success_rate']}%", t.success),
                                 ],
-                                spacing=8,
-                                expand=True,
+                                spacing=10, expand=True,
                             ),
                         ],
                         spacing=20,
+                        vertical_alignment=ft.CrossAxisAlignment.START,
                     ),
                 ],
                 spacing=10,
             ),
-            bgcolor=CLR_CARD,
-            border=ft.border.all(1, CLR_BORDER),
-            border_radius=10,
             padding=20,
             expand=1,
         )
@@ -136,13 +144,14 @@ class DashboardView:
         info_row = ft.Row([status_card, kpi_card], spacing=12)
 
         # ── Atividade recente ──
+        def fmt_ts(iso):
+            try:
+                return datetime.fromisoformat(iso).strftime("%H:%M:%S")
+            except Exception:
+                return iso or "—"
+
         recent_rows = []
         for r in recent:
-            ts = r.get("timestamp", "")
-            try:
-                ts = datetime.fromisoformat(ts).strftime("%H:%M:%S")
-            except Exception:
-                pass
             success = r.get("success", True)
             recent_rows.append(
                 ft.Container(
@@ -150,90 +159,52 @@ class DashboardView:
                         [
                             ft.Icon(
                                 ft.Icons.CHECK_CIRCLE if success else ft.Icons.CANCEL,
-                                color=CLR_SUCCESS if success else CLR_ERROR,
-                                size=16,
+                                color=t.success if success else t.error, size=16,
                             ),
-                            ft.Text(ts, size=11, color=CLR_SUB, width=70),
-                            ft.Text(r.get("user_name", "—"), size=12, color=CLR_TEXT, width=120),
-                            ft.Text(r.get("transaction_code", "—"), size=12, color=CLR_PRIMARY, width=120),
-                            ft.Text(r.get("action_type", "—"), size=12, color=CLR_TEXT, width=80),
-                            ft.Text(r.get("object_name") or r.get("object_type", "—"), size=12, color=CLR_SUB, expand=True, overflow=ft.TextOverflow.ELLIPSIS),
+                            ft.Text(fmt_ts(r.get("timestamp","")), size=11, color=t.subtext, width=70),
+                            ft.Text(r.get("user_name","—"),         size=12, color=t.text,   width=120),
+                            ft.Text(r.get("transaction_code","—"),  size=12, color=t.primary, width=120),
+                            ft.Text(r.get("action_type","—"),       size=12, color=t.text,   width=80),
+                            ft.Text(
+                                r.get("object_name") or r.get("object_type","—"),
+                                size=12, color=t.subtext, expand=True,
+                                overflow=ft.TextOverflow.ELLIPSIS,
+                            ),
                         ],
                         spacing=8,
                     ),
-                    padding=ft.padding.symmetric(horizontal=12, vertical=8),
-                    border=ft.border.only(bottom=ft.border.BorderSide(1, CLR_BORDER)),
+                    padding=ft.Padding.symmetric(horizontal=12, vertical=8),
+                    border=ft.Border.only(bottom=ft.BorderSide(1, t.border)),
                 )
             )
 
         if not recent_rows:
             recent_rows.append(
                 ft.Container(
-                    content=ft.Text("Nenhuma ação registrada ainda.", color=CLR_SUB, size=13),
-                    padding=20,
-                    alignment=ft.alignment.center,
+                    content=ft.Text("Nenhuma ação registrada ainda.", color=t.subtext, size=13),
+                    padding=20, alignment=ft.Alignment(0, 0),
                 )
             )
 
-        recent_card = ft.Container(
+        recent_card = t.card_container(
             content=ft.Column(
                 [
-                    ft.Text("🕐 Atividade Recente", size=14, weight=ft.FontWeight.BOLD, color=CLR_TEXT),
-                    ft.Divider(height=1, color=CLR_BORDER),
+                    ft.Text("🕐 Atividade Recente", size=14, weight=ft.FontWeight.BOLD, color=t.text),
+                    t.divider(),
                     *recent_rows,
                 ],
                 spacing=0,
             ),
-            bgcolor=CLR_CARD,
-            border=ft.border.all(1, CLR_BORDER),
-            border_radius=10,
             padding=20,
-        )
-
-        # ── Atalhos ──
-        shortcuts = [
-            ("🔍 DS_AUDIT",    "Console de Auditoria", "audit"),
-            ("📋 DS_CHG",      "ChangeLog Viewer",     "changelog"),
-            ("📊 DS_KPI_DASH", "Dashboard de KPIs",    "kpi"),
-        ]
-        shortcut_row = ft.Row(
-            [
-                ft.Container(
-                    content=ft.Column(
-                        [
-                            ft.Text(title, size=14, weight=ft.FontWeight.W_600, color=CLR_PRIMARY),
-                            ft.Text(desc, size=12, color=CLR_SUB),
-                        ],
-                        spacing=4, tight=True,
-                    ),
-                    bgcolor=CLR_CARD,
-                    border=ft.border.all(1, CLR_PRIMARY),
-                    border_radius=8,
-                    padding=ft.padding.symmetric(horizontal=20, vertical=14),
-                    expand=True,
-                    on_hover=lambda e: (setattr(e.control, "bgcolor", ft.Colors.BLUE_50 if e.data == "true" else CLR_CARD), e.control.update()),
-                )
-                for title, desc, _ in shortcuts
-            ],
-            spacing=12,
         )
 
         return ft.Container(
             content=ft.Column(
-                [welcome, info_row, recent_card, shortcut_row],
+                [welcome, info_row, recent_card],
                 spacing=14,
                 scroll=ft.ScrollMode.AUTO,
             ),
             padding=24,
-            bgcolor=CLR_BG,
+            bgcolor=t.bg,
             expand=True,
-        )
-
-    def _mini_stat(self, label: str, value: str, color: str = None) -> ft.Row:
-        return ft.Row(
-            [
-                ft.Text(label, size=12, color=CLR_SUB, expand=True),
-                ft.Text(value, size=13, weight=ft.FontWeight.BOLD, color=color or CLR_TEXT),
-            ],
-            spacing=8,
         )
