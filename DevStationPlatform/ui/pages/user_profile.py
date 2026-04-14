@@ -1,6 +1,6 @@
 """
 Perfil do Usuário - DevStationPlatform
-Visualização e edição do perfil do usuário autenticado
+Todos os dados serializados dentro da sessão para evitar DetachedInstanceError
 """
 
 from nicegui import ui, app as nicegui_app
@@ -11,6 +11,83 @@ from core.models.audit import AuditLog
 from core.models.base import db_manager
 from datetime import datetime
 
+PROFILE_COLORS = {
+    'ADMIN': 'bg-red-600', 'DEV_ALL': 'bg-orange-600',
+    'CORE_DEV': 'bg-purple-600', 'DEVELOPER': 'bg-indigo-600',
+    'BANALYST': 'bg-blue-600', 'PUSER': 'bg-teal-600', 'USER': 'bg-gray-600',
+}
+BADGE_COLORS = {
+    'ADMIN': 'red-6', 'DEV_ALL': 'deep-orange-6', 'CORE_DEV': 'purple-6',
+    'DEVELOPER': 'indigo-6', 'BANALYST': 'blue-6', 'PUSER': 'teal-6', 'USER': 'grey-6',
+}
+
+
+def _load_user_dict(user_id):
+    """Retorna todos os dados do usuário como dict enquanto sessão está aberta."""
+    session = db_manager.get_session()
+    try:
+        u = session.query(User).filter(User.id == user_id).first()
+        if not u:
+            return None
+        profiles = [p.code for p in (u.profiles or [])]
+        all_perms = set()
+        for p in (u.profiles or []):
+            for perm in (p.permissions or []):
+                all_perms.add(perm.code)
+        return {
+            'id':          u.id,
+            'username':    u.username,
+            'full_name':   u.full_name or '',
+            'email':       u.email or '',
+            'is_active':   u.is_active,
+            'is_locked':   u.is_locked,
+            'is_system':   u.is_system,
+            'theme':       u.theme or 'dark',
+            'language':    u.language or 'pt_BR',
+            'last_login':  u.last_login.strftime('%d/%m/%Y %H:%M') if u.last_login else '—',
+            'created_at':  u.created_at.strftime('%d/%m/%Y %H:%M') if u.created_at else '—',
+            'created_by':  u.created_by or '—',
+            'login_attempts': u.login_attempts or 0,
+            'profiles':    profiles,
+            'all_perms':   list(all_perms),
+        }
+    finally:
+        session.close()
+
+
+def _load_activity(user_id, limit=10):
+    session = db_manager.get_session()
+    try:
+        logs = (session.query(AuditLog)
+                .filter(AuditLog.user_id == user_id)
+                .order_by(AuditLog.timestamp.desc())
+                .limit(limit).all())
+        return [
+            {
+                'ts':     l.timestamp.strftime('%d/%m %H:%M') if l.timestamp else '—',
+                'action': l.action_type or '—',
+                'tx':     l.transaction_code or '—',
+                'obj':    l.object_name or '—',
+                'ok':     l.success,
+            }
+            for l in logs
+        ]
+    finally:
+        session.close()
+
+
+def _load_stats(user_id):
+    session = db_manager.get_session()
+    try:
+        total  = session.query(AuditLog).filter(AuditLog.user_id == user_id).count()
+        errors = session.query(AuditLog).filter(
+            AuditLog.user_id == user_id, AuditLog.success == False).count()
+        logins = session.query(AuditLog).filter(
+            AuditLog.user_id == user_id, AuditLog.action_type == 'LOGIN').count()
+        return total, logins, errors
+    finally:
+        session.close()
+
 
 @create_page_layout("Meu Perfil")
 def render():
@@ -19,105 +96,69 @@ def render():
         return
 
     user_id = user_data.get('id')
+    ud = _load_user_dict(user_id)
+    if not ud:
+        ui.label('Usuário não encontrado.').classes('text-red-400')
+        return
 
-    def load_user():
-        session = db_manager.get_session()
-        try:
-            return session.query(User).filter(User.id == user_id).first()
-        finally:
-            session.close()
+    profiles  = ud['profiles']
+    all_perms = set(ud['all_perms'])
+    initial   = ud['username'][0].upper()
+    avatar_bg = next((PROFILE_COLORS[p] for p in profiles if p in PROFILE_COLORS), 'bg-blue-600')
 
-    def load_recent_activity(limit=10):
-        session = db_manager.get_session()
-        try:
-            logs = (
-                session.query(AuditLog)
-                .filter(AuditLog.user_id == user_id)
-                .order_by(AuditLog.timestamp.desc())
-                .limit(limit)
-                .all()
-            )
-            return [
-                {
-                    'ts':     l.timestamp.strftime('%d/%m %H:%M') if l.timestamp else '—',
-                    'action': l.action_type or '—',
-                    'tx':     l.transaction_code or '—',
-                    'obj':    l.object_name or '—',
-                    'ok':     l.success,
-                }
-                for l in logs
-            ]
-        finally:
-            session.close()
-
-    user = load_user()
-
-    # ── Avatar + nome ──────────────────────────────────────────────────────
-    initial = (user.username[0] if user else '?').upper()
-    profiles = [p.code for p in user.profiles] if user and user.profiles else []
-    profile_colors = {
-        'ADMIN': 'bg-red-500', 'DEV_ALL': 'bg-orange-500',
-        'CORE_DEV': 'bg-purple-500', 'DEVELOPER': 'bg-indigo-500',
-        'BANALYST': 'bg-blue-500', 'PUSER': 'bg-teal-500', 'USER': 'bg-gray-500',
-    }
-    avatar_color = next((profile_colors[p] for p in profiles if p in profile_colors), 'bg-blue-500')
-
+    # ── Cabeçalho ────────────────────────────────────────────────────────
     with ui.row().classes('items-start gap-8 w-full mb-6'):
-        # Avatar
-        with ui.column().classes('items-center gap-3'):
-            with ui.card().classes(f'w-24 h-24 {avatar_color} rounded-full items-center justify-center shadow-lg'):
+        with ui.column().classes('items-center gap-2'):
+            with ui.card().classes(
+                f'w-24 h-24 {avatar_bg} rounded-full items-center justify-center shadow-lg'
+            ):
                 ui.label(initial).classes('text-white text-4xl font-bold')
             for code in profiles[:2]:
-                ui.badge(code).props(f'color={profile_colors.get(code, "blue-5")}')
+                ui.badge(code).props(f'color={BADGE_COLORS.get(code, "blue-5")}')
 
-        # Info principal
-        with ui.column().classes('gap-2 flex-1'):
-            ui.label(user.full_name or user.username if user else '—') \
-                .classes('text-white text-3xl font-bold')
-            ui.label(f'@{user.username}' if user else '—') \
-                .classes('text-[#8b949e] text-lg')
-            ui.label(user.email or '—' if user else '—') \
-                .classes('text-[#8b949e]')
+        with ui.column().classes('gap-1 flex-1'):
+            ui.label(ud['full_name'] or ud['username']).classes('text-white text-3xl font-bold')
+            ui.label(f'@{ud["username"]}').classes('text-[#8b949e] text-lg')
+            ui.label(ud['email']).classes('text-[#8b949e]')
             with ui.row().classes('gap-2 mt-1'):
-                status_color = 'green' if user and user.is_active else 'red'
-                status_text  = 'Ativo' if user and user.is_active else 'Inativo'
-                ui.badge(status_text).props(f'color={status_color}')
-                if user and user.is_system:
+                ui.badge('Ativo' if ud['is_active'] else 'Inativo') \
+                    .props(f'color={"green" if ud["is_active"] else "red"}')
+                if ud['is_system']:
                     ui.badge('Sistema').props('color=blue-5')
-                if user and user.is_locked:
+                if ud['is_locked']:
                     ui.badge('Bloqueado').props('color=orange')
 
-        # Ação rápida
         ui.button('Editar Perfil', icon='edit',
-                  on_click=lambda: open_edit_dialog(user)) \
+                  on_click=lambda: open_edit_dialog()) \
             .props('color=blue-6 no-caps')
 
-    # ── Grid principal ─────────────────────────────────────────────────────
+    # ── Grid ─────────────────────────────────────────────────────────────
     with ui.row().classes('gap-6 w-full items-start'):
 
-        # Coluna esquerda
+        # Esquerda
         with ui.column().classes('flex-1 gap-6'):
-
             with data_card('Informações da Conta'):
                 rows = [
-                    ('ID do Usuário',   str(user.id) if user else '—'),
-                    ('Username',        user.username if user else '—'),
-                    ('E-mail',          user.email or '—' if user else '—'),
-                    ('Nome Completo',   user.full_name or '—' if user else '—'),
-                    ('Idioma',          user.language or 'pt_BR' if user else '—'),
-                    ('Tema',            user.theme or 'dark' if user else '—'),
-                    ('Criado em',       user.created_at.strftime('%d/%m/%Y %H:%M') if user and user.created_at else '—'),
-                    ('Último Login',    user.last_login.strftime('%d/%m/%Y %H:%M') if user and user.last_login else '—'),
-                    ('Login Criado por',user.created_by or '—' if user else '—'),
+                    ('ID',              str(ud['id'])),
+                    ('Username',        ud['username']),
+                    ('E-mail',          ud['email'] or '—'),
+                    ('Nome Completo',   ud['full_name'] or '—'),
+                    ('Idioma',          ud['language']),
+                    ('Tema',            ud['theme']),
+                    ('Criado em',       ud['created_at']),
+                    ('Último Login',    ud['last_login']),
+                    ('Criado por',      ud['created_by']),
                 ]
                 with ui.column().classes('gap-0 w-full'):
                     for label, val in rows:
-                        with ui.row().classes('items-center justify-between py-2 border-b border-[#30363d] last:border-0'):
-                            ui.label(label).classes('text-[#8b949e] text-sm w-40')
+                        with ui.row().classes(
+                            'items-center justify-between py-2 border-b border-[#30363d] last:border-0'
+                        ):
+                            ui.label(label).classes('text-[#8b949e] text-sm w-40 shrink-0')
                             ui.label(val).classes('text-white text-sm font-medium')
 
+            activity = _load_activity(user_id)
             with data_card('Atividade Recente'):
-                activity = load_recent_activity()
                 if not activity:
                     ui.label('Nenhuma atividade registrada.').classes('text-[#8b949e] py-4')
                 else:
@@ -128,7 +169,8 @@ def render():
                         {'name': 'obj',    'label': 'Objeto',    'field': 'obj',    'align': 'left'},
                         {'name': 'ok',     'label': 'Status',    'field': 'ok',     'align': 'center'},
                     ]
-                    t = ui.table(columns=cols, rows=activity).classes('w-full ds-table text-xs').props('dense')
+                    t = ui.table(columns=cols, rows=activity) \
+                        .classes('w-full ds-table text-xs').props('dense')
                     t.add_slot('body-cell-ok', '''
                         <q-td :props="props" class="text-center">
                             <q-badge :color="props.value ? \'green\' : \'red\'"
@@ -136,107 +178,89 @@ def render():
                         </q-td>
                     ''')
 
-        # Coluna direita
+        # Direita
         with ui.column().classes('w-72 gap-6'):
-
             with data_card('Perfis de Acesso'):
                 if not profiles:
-                    ui.label('Nenhum perfil atribuído.').classes('text-[#8b949e] text-sm')
+                    ui.label('Nenhum perfil.').classes('text-[#8b949e] text-sm')
                 else:
                     PERM_GROUPS = {
-                        'Transações': ['transaction.execute', 'transaction.create', 'transaction.modify.ds'],
+                        'Transações': ['transaction.execute', 'transaction.create'],
                         'Dados':      ['data.query', 'data.export', 'data.import'],
-                        'Admin':      ['admin.users', 'admin.audit', 'admin.backup'],
+                        'Admin':      ['admin.users', 'admin.audit'],
                         'IA':         ['ia.consult', 'ia.train'],
                     }
-                    session = db_manager.get_session()
-                    try:
-                        u = session.query(User).filter(User.id == user_id).first()
-                        all_perms = u.get_all_permissions() if u else set()
-                    finally:
-                        session.close()
-
                     for code in profiles:
-                        color = profile_colors.get(code, 'bg-blue-500')
-                        with ui.card().classes(f'border border-[#30363d] p-3 mb-2'):
-                            with ui.row().classes('items-center gap-2 mb-2'):
-                                ui.badge(code).props(f'color={profile_colors.get(code, "blue-5")}')
+                        with ui.card().classes('border border-[#30363d] bg-[#0d1117] p-3 mb-2'):
+                            ui.badge(code).props(f'color={BADGE_COLORS.get(code, "blue-5")}').classes('mb-2')
                             with ui.column().classes('gap-1'):
                                 for grp, perms in PERM_GROUPS.items():
                                     has = any(p in all_perms for p in perms)
-                                    icon = 'check_circle' if has else 'cancel'
-                                    color_cls = 'text-green-400' if has else 'text-[#30363d]'
-                                    with ui.row().classes(f'items-center gap-1'):
-                                        ui.icon(icon).classes(f'{color_cls} text-sm')
-                                        ui.label(grp).classes(f'{color_cls} text-xs')
+                                    with ui.row().classes('items-center gap-1'):
+                                        ui.icon(
+                                            'check_circle' if has else 'cancel'
+                                        ).classes(
+                                            ('text-green-400' if has else 'text-[#30363d]') + ' text-sm'
+                                        )
+                                        ui.label(grp).classes(
+                                            ('text-[#c9d1d9]' if has else 'text-[#30363d]') + ' text-xs'
+                                        )
 
+            total, logins, errors = _load_stats(user_id)
             with data_card('Estatísticas'):
-                session = db_manager.get_session()
-                try:
-                    total_actions = session.query(AuditLog).filter(AuditLog.user_id == user_id).count()
-                    total_errors  = session.query(AuditLog).filter(
-                        AuditLog.user_id == user_id, AuditLog.success == False).count()
-                    logins = session.query(AuditLog).filter(
-                        AuditLog.user_id == user_id, AuditLog.action_type == 'LOGIN').count()
-                finally:
-                    session.close()
-
                 for label, val, cls in [
-                    ('Total de Ações',  total_actions, 'text-white'),
-                    ('Logins',          logins,        'text-green-400'),
-                    ('Erros',           total_errors,  'text-red-400'),
+                    ('Total de Ações', total,  'text-white'),
+                    ('Logins',         logins, 'text-green-400'),
+                    ('Erros',          errors, 'text-red-400'),
                 ]:
-                    with ui.row().classes('items-center justify-between py-2 border-b border-[#30363d] last:border-0'):
+                    with ui.row().classes(
+                        'items-center justify-between py-2 border-b border-[#30363d] last:border-0'
+                    ):
                         ui.label(label).classes('text-[#8b949e] text-sm')
                         ui.label(str(val)).classes(f'{cls} font-bold')
 
-    # ── Dialog de edição ───────────────────────────────────────────────────
-    def open_edit_dialog(user_obj):
-        if not user_obj:
-            return
-        with ui.dialog() as dlg, ui.card().classes('w-[500px] bg-[#161b22] border border-[#30363d] p-6'):
+    # ── Dialog de edição ──────────────────────────────────────────────────
+    def open_edit_dialog():
+        with ui.dialog() as dlg, \
+             ui.card().classes('w-[500px] bg-[#161b22] border border-[#30363d] p-6'):
             ui.label('Editar Perfil').classes('text-white text-lg font-bold mb-4')
-
-            f_name  = ui.input('Nome Completo', value=user_obj.full_name or '') \
+            f_name  = ui.input('Nome Completo', value=ud['full_name']) \
                 .classes('w-full').props('outlined dense dark color=blue-4')
-            f_email = ui.input('E-mail', value=user_obj.email or '') \
+            f_email = ui.input('E-mail', value=ud['email']) \
                 .classes('w-full').props('outlined dense dark color=blue-4')
-
             ui.separator().classes('bg-[#30363d] my-2')
-            ui.label('Alterar Senha (deixe em branco para não alterar)') \
+            ui.label('Alterar Senha (deixe em branco para manter)') \
                 .classes('text-[#8b949e] text-xs')
             f_pwd  = ui.input('Nova Senha', password=True, password_toggle_button=True) \
                 .classes('w-full').props('outlined dense dark color=blue-4')
             f_pwd2 = ui.input('Confirmar Senha', password=True, password_toggle_button=True) \
                 .classes('w-full').props('outlined dense dark color=blue-4')
-
             err = ui.label('').classes('text-red-400 text-sm')
 
             def save():
                 if f_pwd.value and f_pwd.value != f_pwd2.value:
-                    err.set_text('As senhas não coincidem.')
-                    return
+                    err.set_text('As senhas não coincidem.'); return
                 session = db_manager.get_session()
                 try:
-                    u = session.query(User).filter(User.id == user_obj.id).first()
+                    u = session.query(User).filter(User.id == user_id).first()
                     u.full_name  = f_name.value
                     u.email      = f_email.value
                     u.updated_at = datetime.now()
                     if f_pwd.value:
                         u.set_password(f_pwd.value)
                     session.commit()
-                    # Atualiza storage de sessão
                     nicegui_app.storage.user.update({
-                        'user_data': {**user_data,
-                                      'full_name': f_name.value,
-                                      'email': f_email.value}
+                        'user_data': {
+                            **nicegui_app.storage.user.get('user_data', {}),
+                            'full_name': f_name.value,
+                            'email':     f_email.value,
+                        }
                     })
                     ui.notify('Perfil atualizado!', type='positive')
                     dlg.close()
                     ui.navigate.reload()
                 except Exception as e:
-                    session.rollback()
-                    err.set_text(f'Erro: {e}')
+                    session.rollback(); err.set_text(f'Erro: {e}')
                 finally:
                     session.close()
 

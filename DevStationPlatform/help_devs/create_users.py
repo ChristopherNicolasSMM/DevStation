@@ -4,8 +4,12 @@ Script simples para criar usuários de teste
 
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+#sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Adiciona o diretório pai (raiz do projeto) ao path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+#-------------------------------------------------------------------------------
 from core.models.base import db_manager
 from core.models.user import User, Profile, Permission
 from datetime import datetime

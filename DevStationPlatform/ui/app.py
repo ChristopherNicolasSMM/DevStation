@@ -65,7 +65,7 @@ def create_app():
     # Importar páginas (evitar import circular)
     from ui.pages import (login, dashboard, admin_users, admin_profiles, admin_audit,
                           tools_query, tools_table, designer,
-                          user_profile, user_settings)
+                          user_profile, user_settings, tools_plugins)
 
     # Registrar rotas
     @ui.page('/')
@@ -161,6 +161,15 @@ def create_app():
             ui.navigate.to('/login'); return
         user_settings.render()
 
+
+    @ui.page('/tools/plugins')
+    def tools_plugins_page():
+        """Gerenciador de Plugins (DS_PLUGINS)"""
+        init_storage()
+        if not app.storage.user.get('authenticated'):
+            ui.navigate.to('/login'); return
+        tools_plugins.render()
+
     # Middleware de autenticação
     @app.middleware
     async def auth_middleware(request, call_next):
@@ -252,6 +261,20 @@ def create_app():
     .ds-table tr:hover {
         background-color: rgba(255,255,255,0.05) !important;
     }
+
+    /* Force dark on all Quasar dialog overlays */
+    .q-dialog .q-card { background-color: var(--ds-surface) !important; }
+    .q-dialog .q-item { color: var(--ds-text) !important; }
+
+    /* Inputs dark override */
+    .q-field__control { background-color: var(--ds-bg) !important; }
+    .q-field__native, .q-field__input { color: var(--ds-text) !important; }
+    .q-field__label { color: var(--ds-text-secondary) !important; }
+
+    /* Table rows dark */
+    .q-table tbody tr { color: var(--ds-text) !important; }
+    .q-table tbody td { border-bottom: 1px solid var(--ds-border) !important; }
+    .q-table thead th { background: rgba(255,255,255,0.04) !important; color: var(--ds-text-secondary) !important; }
     </style>
     """, shared=True)
 
