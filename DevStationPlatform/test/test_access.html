@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste de Acesso DevStation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            line-height: 1.6;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Teste de Acesso DevStationPlatform</h1>
+
+    <div id="status"></div>
+
+    <h2>Links para teste:</h2>
+    <ul>
+        <li><a href="http://localhost:8080" target="_blank">Acessar DevStationPlatform</a></li>
+        <li><a href="http://localhost:8080/login" target="_blank">Página de Login</a></li>
+        <li><a href="http://localhost:8080/dashboard" target="_blank">Dashboard (após login)</a></li>
+    </ul>
+
+    <h2>Credenciais para teste:</h2>
+    <ul>
+        <li><strong>Usuário:</strong> admin | <strong>Senha:</strong> admin123</li>
+        <li><strong>Usuário:</strong> developer | <strong>Senha:</strong> dev123</li>
+    </ul>
+
+    <button onclick="testConnection()">Testar Conexão</button>
+
+    <script>
+        async function testConnection() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = '<div class="status warning">Testando conexão...</div>';
+
+            try {
+                const response = await fetch('http://localhost:8080');
+                if (response.ok) {
+                    statusDiv.innerHTML = '<div class="status success">✅ Aplicação está respondendo! Status: ' + response.status + '</div>';
+                } else {
+                    statusDiv.innerHTML = '<div class="status warning">⚠️ Aplicação respondeu com status: ' + response.status + '</div>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">❌ Erro ao conectar: ' + error.message + '</div>';
+            }
+        }
+
+        // Testar automaticamente ao carregar
+        window.onload = testConnection;
+    </script>
+</body>
+</html>

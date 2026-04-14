@@ -178,7 +178,7 @@ class KpiDashView:
         avg_rt = d.get("avg_response_time_ms", 0)
         err_rt = d.get("error_rate_pct", 0)
         items = [
-            ("Total de Ações",  str(d.get("total_transactions", 0)),    ft.Icons.RECEIPT_LONG,       t.primary),
+            ("Total de Ações",  str(d.get("total_transactions", 0)),     ft.Icons.RECEIPT_LONG,       t.primary),
             ("Ações Hoje",      str(d.get("transactions_today", 0)),     ft.Icons.TODAY,              ft.Colors.INDIGO_400),
             ("Usuários Ativos", str(d.get("active_users_session", 0)),   ft.Icons.PEOPLE,             ft.Colors.TEAL_500),
             ("Tempo Médio",     f"{avg_rt:.0f}ms",                       ft.Icons.SPEED,              _rt_color(avg_rt, t)),
